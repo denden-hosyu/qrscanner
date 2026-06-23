@@ -61,12 +61,7 @@
 
     <div class="input-group">
       <label for="location">現場名（持ち出し先）：</label>
-      <select id="location">
-        <option value="-">- (入庫時は選択不要)</option>
-        <option value="A現場">A現場</option>
-        <option value="B現場">B現場</option>
-        <option value="C現場">C現場</option>
-      </select>
+      <input type="text" id="location" placeholder="現場名を入力してください">
     </div>
 
     <p style="font-size: 0.9em;">商品のQRコードをカメラにかざしてください</p>
@@ -137,7 +132,7 @@
 
       const selectedType = document.querySelector('input[name="scan_type"]:checked').value;
       const selectedUser = document.getElementById('operator').value;
-      const selectedLocation = document.getElementById('location').value; // ★追加：選択された現場名を取得
+      const inputLocation = document.getElementById('location').value; // 入力された現場名を取得
 
       fetch(GAS_URL, {
         method: "POST",
@@ -147,7 +142,7 @@
           itemId: scannedText,
           type: selectedType,
           user: selectedUser,
-          location: selectedLocation // ★追加：GASに現場名データを送る
+          location: inputLocation // GASに現場名データを送信
         })
       })
       .then(response => response.json())
@@ -176,8 +171,8 @@
       document.getElementById('status').innerText = "";
       document.getElementById('send-btn').disabled = false;
       
-      // ★追加：次のスキャンのために現場名の選択を初期状態（-）に戻す
-      document.getElementById('location').value = "-";
+      // 送信完了・撮り直し時に、現場名の入力欄を空にする
+      document.getElementById('location').value = "";
       
       scannedText = "";
       isScanning = true; 
