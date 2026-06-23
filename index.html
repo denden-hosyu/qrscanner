@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR在庫スキャン</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; background: #f5f5f5; }
+    #reader { width: 100%; max-width: 400px; margin: 20px auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    #status { font-weight: bold; color: green; margin-top: 20px; font-size: 1.2em; }
+  </style>
+</head>
+<body>
+
+  <h2>在庫QRスキャン</h2>
+  <p>商品のQRコードをカメラにかざしてください</p>
+
+  <div id="reader"></div>
+  <div id="status"></div>
+
+  <script>
+    let isScanning = true;
+
+    // 【重要】ここにステップ1で取得したGASのURL（/exec）を貼り付けます
+    const GAS_URL = https://script.google.com/macros/s/AKfycbyxEckaXruiXHhOqxa8j1Nfi4m27mqWdTOJDPAOyBt21a1q0Yw_qi37Q9dino8_Y1H6_A/exec;
+
+    function onScanSuccess(decodedText, decodedResult) {
+      if (!isScanning) return; 
+      isScanning = false;
+
+      document.getElementById('status').innerText = "送信中...";
+
+      // GASへデータを安全に送信
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ itemId: decodedText })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById('status').innerText = data.message;
+        } else {
+          document.getElementById('status').innerText = "エラー: " + data.message;
+        }
+        setTimeout(() => {
+          document.getElementById('status').innerText = "";
+          isScanning = true;
+        }, 3000);
+      })
+      .catch(error => {
+        document.getElementById('status').innerText = "通信エラーが発生しました";
+        console.error(error);
+        isScanning = true;
+      });
+    }
+
+    // ページを開いた瞬間に背面カメラを直接起動
+    window.addEventListener('DOMContentLoaded', () => {
+      const html5QrCode = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: 250 };
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        config, 
+        onScanSuccess
+      ).catch(err => {
+        console.error("カメラ起動エラー:", err);
+        document.getElementById('status').innerText = "カメラの起動に失敗しました。";
+      });
+    });
+  </script>
+
+</body>
+</html>
