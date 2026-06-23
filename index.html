@@ -11,63 +11,132 @@
     #status { font-weight: bold; color: green; margin-top: 20px; font-size: 1.2em; }
     .input-group { margin: 15px auto; max-width: 300px; text-align: left; background: white; padding: 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .input-group label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
-    .input-group select { width: 100%; padding: 8px; font-size: 1em; border-radius: 4px; border: 1px solid #ccc; }
+    .input-group select, .input-group input { width: 100%; padding: 8px; font-size: 1em; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
+    
+    /* ボタンの装飾 */
+    .btn { font-size: 1.1em; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-primary:disabled { background: #cccccc; cursor: not-allowed; }
+    
+    /* 送信確認エリアの装飾 */
+    #confirm-section { background: #e3f2fd; padding: 15px; margin: 20px auto; max-width: 400px; border-radius: 8px; border: 2px solid #90caf9; display: none; }
   </style>
 </head>
 <body>
 
-  <h2>在庫QRスキャン</h2>
-
-  <div style="margin: 15px;">
-    <label style="font-size: 1.2em; margin-right: 15px;">
-      <input type="radio" name="scan_type" value="入庫" checked style="transform: scale(1.5); margin-right: 5px;"> 入庫
-    </label>
-    <label style="font-size: 1.2em;">
-      <input type="radio" name="scan_type" value="出庫" style="transform: scale(1.5); margin-right: 5px;"> 出庫
-    </label>
+  <div id="login-section" style="margin-top: 50px;">
+    <h2>在庫管理システム</h2>
+    <p>パスワードを入力してください</p>
+    <div class="input-group">
+      <input type="password" id="password-input" placeholder="パスワードを入力">
+    </div>
+    <div style="max-width: 300px; margin: 10px auto;">
+      <button class="btn btn-primary" onclick="checkPassword()">ログイン</button>
+    </div>
+    <p id="login-error" style="color: red; font-weight: bold; margin-top: 15px;"></p>
   </div>
 
-  <div class="input-group">
-    <label for="operator">作業者名：</label>
-    <select id="operator">
-      <option value="担当者A">担当者A</option>
-      <option value="担当者B">担当者B</option>
-      <option value="担当者C">担当者C</option>
-    </select>
+  <div id="main-section" style="display: none;">
+    <h2>在庫QRスキャン</h2>
+    
+    <div style="margin: 15px;">
+      <label style="font-size: 1.2em; margin-right: 15px;">
+        <input type="radio" name="scan_type" value="入庫" checked style="transform: scale(1.5); margin-right: 5px;"> 入庫
+      </label>
+      <label style="font-size: 1.2em;">
+        <input type="radio" name="scan_type" value="出庫" style="transform: scale(1.5); margin-right: 5px;"> 出庫
+      </label>
+    </div>
+
+    <div class="input-group">
+      <label for="operator">作業者名：</label>
+      <select id="operator">
+        <option value="ひらさこ">ひらさこ</option>
+        <option value="阿部春">阿部春</option>
+        <option value="加藤">加藤</option>
+      </select>
+    </div>
+
+    <p>商品のQRコードをカメラにかざしてください</p>
+    <div id="reader"></div>
+
+    <div id="confirm-section">
+      <p style="font-weight: bold; color: #0d47a1; font-size: 1.2em; margin: 0 0 10px 0;">🎉 取り込み完了！</p>
+      <p style="font-size: 1.1em; margin: 5px 0;">スキャン内容: <span id="scanned-value" style="font-weight: bold; color: red;"></span></p>
+      <p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">内容を確認して、下のボタンを押してください。</p>
+      <button id="send-btn" class="btn btn-primary" onclick="sendData()">データを送信する</button>
+    </div>
+
+    <div id="status"></div>
   </div>
-
-  <p>商品のQRコードをカメラにかざしてください</p>
-
-  <div id="reader"></div>
-  <div id="status"></div>
 
   <script>
-    let isScanning = true;
+    // 🔐 【重要】ここでログインパスワードを設定してください（現在は 2151 になっています）
+    const CORRECT_PASSWORD = "2151";
 
-    // GASの本番URL
+    let isScanning = true;
+    let scannedText = ""; // スキャンした文字を一時保存する変数
+    let html5QrCode;
+
+    // GASの本番URL（現在のURLを引き継いでいます）
     const GAS_URL = "https://script.google.com/macros/s/AKfycbytqQ6ZJKgD4IS5x6BKXLJpp1KrUtI67I37Od3Jv47txeoz4W1hg1f7XgJGyjXftFs8dw/exec";
 
+    // パスワード認証チェック
+    function checkPassword() {
+      const inputPassword = document.getElementById('password-input').value;
+      if (inputPassword === CORRECT_PASSWORD) {
+        // パスワードが合っていれば、ログイン画面を隠してメイン画面を表示
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('main-section').style.display = 'block';
+        // メイン画面表示後にカメラを起動
+        startCamera();
+      } else {
+        document.getElementById('login-error').innerText = "パスワードが正しくありません。";
+      }
+    }
+
+    // カメラを起動する関数
+    function startCamera() {
+      html5QrCode = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: 250 };
+      html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+      .catch(err => {
+        console.error("カメラ起動エラー:", err);
+        document.getElementById('status').innerText = "カメラの起動に失敗しました。";
+      });
+    }
+
+    // QRコード検知時の処理
     function onScanSuccess(decodedText, decodedResult) {
-      if ( ! isScanning ) return;
-      isScanning = false;
+      if (!isScanning) return; 
+      isScanning = false; // 次のQRスキャンを一時的にブロック
 
+      scannedText = decodedText; // 読み取った内容を記録
+      
+      // 画面に「取り込み完了」とスキャン内容、送信ボタンを表示
+      document.getElementById('scanned-value').innerText = decodedText;
+      document.getElementById('confirm-section').style.display = 'block';
+      document.getElementById('status').innerText = "ボタンを押すとスプレッドシートに送信されます";
+    }
+
+    // 送信ボタンが押された時の処理
+    function sendData() {
       document.getElementById('status').innerText = "送信中...";
+      document.getElementById('send-btn').disabled = true; // 連打防止でボタンを無効化
 
-      // ラジオボタンで選ばれている「入庫」または「出庫」の文字を取得
+      // ラジオボタンとドロップダウンの値を取得
       const selectedType = document.querySelector('input[name="scan_type"]:checked').value;
-
-      // ★ドロップダウンで選ばれている「作業者名」を取得
       const selectedUser = document.getElementById('operator').value;
 
-      // GASへデータをまとめて送信
+      // GASへ送信
       fetch(GAS_URL, {
         method: "POST",
         mode: "cors",
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({
-          itemId: decodedText,
+          itemId: scannedText,
           type: selectedType,
-          user: selectedUser // ★ここを追加
+          user: selectedUser
         })
       })
       .then(response => response.json())
@@ -77,28 +146,22 @@
         } else {
           document.getElementById('status').innerText = "エラー: " + data.message;
         }
+        
+        // 2秒後に確認画面を閉じ、次のスキャンを待機する状態に戻す
         setTimeout(() => {
           document.getElementById('status').innerText = "";
-          isScanning = true;
-        }, 3000);
+          document.getElementById('confirm-section').style.display = 'none';
+          document.getElementById('send-btn').disabled = false;
+          isScanning = true; // スキャン再開
+        }, 2000);
       })
       .catch(error => {
         document.getElementById('status').innerText = "通信エラーが発生しました";
         console.error(error);
+        document.getElementById('send-btn').disabled = false;
         isScanning = true;
       });
     }
-
-    // ページを開いた瞬間に背面カメラを直接起動
-    window.addEventListener('DOMContentLoaded', () => {
-      const html5QrCode = new Html5Qrcode("reader");
-      const config = { fps: 10, qrbox: 250 };
-      html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
-      .catch(err => {
-        console.error("カメラ起動エラー:", err);
-        document.getElementById('status').innerText = "カメラの起動に失敗しました。";
-      });
-    });
   </script>
 
 </body>
