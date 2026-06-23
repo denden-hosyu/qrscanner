@@ -59,6 +59,16 @@
       </select>
     </div>
 
+    <div class="input-group">
+      <label for="location">現場名（持ち出し先）：</label>
+      <select id="location">
+        <option value="-">- (入庫時は選択不要)</option>
+        <option value="A現場">A現場</option>
+        <option value="B現場">B現場</option>
+        <option value="C現場">C現場</option>
+      </select>
+    </div>
+
     <p style="font-size: 0.9em;">商品のQRコードをカメラにかざしてください</p>
     <div id="reader"></div>
 
@@ -87,7 +97,7 @@
     let scannedText = ""; 
     let html5QrCode;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxZ0qTJWqoBiU8wLiR5V3tJvLFVqNf8tnLdwUsEdAVny0LlsxoSkJiQagOsE0jt2Ujnaw/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbytqQ6ZJKgD4IS5x6BKXLJpp1KrUtI67I37Od3Jv47txeoz4W1hg1f7XgJGyjXftFs8dw/exec";
 
     function checkPassword() {
       const inputPassword = document.getElementById('password-input').value;
@@ -127,6 +137,7 @@
 
       const selectedType = document.querySelector('input[name="scan_type"]:checked').value;
       const selectedUser = document.getElementById('operator').value;
+      const selectedLocation = document.getElementById('location').value; // ★追加：選択された現場名を取得
 
       fetch(GAS_URL, {
         method: "POST",
@@ -135,7 +146,8 @@
         body: JSON.stringify({
           itemId: scannedText,
           type: selectedType,
-          user: selectedUser
+          user: selectedUser,
+          location: selectedLocation // ★追加：GASに現場名データを送る
         })
       })
       .then(response => response.json())
@@ -157,15 +169,18 @@
       });
     }
 
-    // ★ 画面の状態をリセットして次のスキャン（再読み込み）を可能にする関数
     function resetScan() {
       document.getElementById('confirm-section').style.display = 'none';
       document.getElementById('before-send').style.display = 'block';
       document.getElementById('after-send').style.display = 'none';
       document.getElementById('status').innerText = "";
       document.getElementById('send-btn').disabled = false;
+      
+      // ★追加：次のスキャンのために現場名の選択を初期状態（-）に戻す
+      document.getElementById('location').value = "-";
+      
       scannedText = "";
-      isScanning = true; // スキャンを再開
+      isScanning = true; 
     }
   </script>
 
