@@ -53,7 +53,7 @@
     <div class="input-group">
       <label for="operator">作業者名：</label>
       <select id="operator">
-        <option value="　　"　　　</option>
+        <option value="  "></option>
         <option value="會田">會田</option>
         <option value="阿部">阿部</option>
         <option value="阿部">阿部</option>
@@ -70,6 +70,11 @@
     <div class="input-group">
       <label for="location">現場名（持ち出し先）：</label>
       <input type="text" id="location" placeholder="現場名を入力（返却時は空欄でもOK）">
+    </div>
+
+    <div class="input-group">
+      <label for="workNo">作業No：</label>
+      <input type="text" id="workNo" placeholder="作業Noを入力（返却時は空欄でもOK）">
     </div>
 
     <p style="font-size: 0.9em;">商品のQRコードをカメラにかざしてください</p>
@@ -100,8 +105,7 @@
     let scannedText = ""; 
     let html5QrCode;
 
-    // ★開いている画面に表示されている最新のURL（バージョン15）に更新済みです
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyCaft8J_03R01MuTzVYlCp8JPufSs0pBUkFfmkGD2AO-nGA-KEEYKx5BsshxX0gifwTw/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz3j3ywF9u6tjt5gVhwtn3q-A4uEXNsW4knuUYeLOyCkJh48Q4MZPIUIQTqM1tqSY8DUw/exec";
 
     function checkPassword() {
       const inputPassword = document.getElementById('password-input').value;
@@ -139,12 +143,13 @@
       const selectedType = document.querySelector('input[name="scan_type"]:checked').value;
       const selectedUser = document.getElementById('operator').value;
       const inputLocation = document.getElementById('location').value.trim(); 
+      const inputWorkNo = document.getElementById('workNo').value.trim(); // ★追加：作業Noを取得
 
-      // ★追加：貸出のときだけ、現場名が空欄（空白のみ含む）ならエラーを出す
+      // 貸出のときだけ、現場名が空欄ならエラーを出す
       if (selectedType === "貸出" && inputLocation === "") {
         alert("【入力エラー】\n貸出時は現場名の入力が必須です。現場名を入力してから「送信する」を押してください。");
         document.getElementById('status').innerText = "エラー: 現場名を入力してください";
-        return; // ここで処理を中断して送信させない
+        return; 
       }
 
       document.getElementById('status').innerText = "送信中...";
@@ -158,7 +163,8 @@
           itemId: scannedText,
           type: selectedType,
           user: selectedUser,
-          location: inputLocation 
+          location: inputLocation,
+          workNo: inputWorkNo // ★追加：オブジェクトに作業Noを含めてGASにPOST
         })
       })
       .then(response => response.json())
@@ -193,6 +199,7 @@
       document.getElementById('send-btn').disabled = false;
       
       document.getElementById('location').value = "";
+      document.getElementById('workNo').value = ""; // ★追加：次のスキャン時に作業Noも空欄に戻す
       
       scannedText = "";
       isScanning = true; 
