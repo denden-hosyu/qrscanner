@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR在庫スキャン</title>
+  <title>セキュアQR在庫スキャン</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body { font-family: sans-serif; text-align: center; margin: 8px; background: #f5f5f5; font-size: 0.95em; }
@@ -33,9 +33,9 @@
       <input type="password" id="password-input" placeholder="パスワードを入力">
     </div>
     <div style="max-width: 320px; margin: 10px auto;">
-      <button class="btn btn-primary" onclick="checkPassword()">ログイン</button>
+      <button class="btn btn-primary" id="login-btn" onclick="checkPassword()">ログイン</button>
     </div>
-    <p id="login-error" style="color: red; font-weight: bold; margin-top: 10px;"></p>
+    <p id="login-error" style="font-weight: bold; margin-top: 10px;"></p>
   </div>
 
   <div id="main-section" style="display: none;">
@@ -53,9 +53,8 @@
     <div class="input-group">
       <label for="operator">作業者名：</label>
       <select id="operator">
-        <option value="  "></option>
+        <option value=""></option>
         <option value="會田">會田</option>
-        <option value="阿部">阿部</option>
         <option value="阿部">阿部</option>
         <option value="平硲">平硲</option>
         <option value="佐藤 健">佐藤 健</option>
@@ -69,12 +68,12 @@
 
     <div class="input-group">
       <label for="location">現場名（持ち出し先）：</label>
-      <input type="text" id="location" placeholder="現場名を入力（返却時は空欄でもOK）">
+      <input type="text" id="location" placeholder="現場名を入力（返却時は空欄OK）">
     </div>
 
     <div class="input-group">
       <label for="workNo">作業No：</label>
-      <input type="text" id="workNo" placeholder="作業Noを入力（返却時は空欄でもOK）">
+      <input type="text" id="workNo" placeholder="作業Noを入力（返却時は空欄OK）">
     </div>
 
     <p style="font-size: 0.9em;">商品のQRコードをカメラにかざしてください</p>
@@ -82,8 +81,8 @@
 
     <div id="confirm-section">
       <div id="before-send">
-        <p style="font-weight: bold; color: #0d47a1; font-size: 1.1em; margin: 0 0 5px 0;">🎉 取り込み完了！</p>
-        <p style="font-size: 1em; margin: 3px 0;">スキャン内容: <span id="scanned-value" style="font-weight: bold; color: red;"></span></p>
+        <p style="font-weight: bold; color: #0d47a1; font-size: 1.1em; margin: 0 0 5px 0;">🎉 スキャン完了！</p>
+        <p style="font-size: 1em; margin: 3px 0;">内容: <span id="scanned-value" style="font-weight: bold; color: red;"></span></p>
         <div style="display: flex; gap: 8px; margin-top: 8px;">
           <button id="send-btn" class="btn btn-primary" onclick="sendData()">送信する</button>
           <button class="btn btn-secondary" onclick="resetScan()">撮り直す</button>
@@ -100,34 +99,66 @@
   </div>
 
   <script>
-    const CORRECT_PASSWORD = "2151";
+    // ★重要: ここにデプロイしたWebアプリURLを貼り付けてください
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzSmYcp6vXsiUcVWN7cEO2EwoIxucA7s9hiHWzTOPX81oqGXcCXnqM6OVTK2R21N1PO8w/exec";
+
     let isScanning = true;
     let scannedText = ""; 
     let html5QrCode;
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwT76vNpWrTfOmszHFnIxG1-WAz6RdJbCanWdnAr4Fa2gBxK9dRu-862TodiRdOCgQkJQ/exec";
-
+    // --- パスワード認証 (サーバーサイド判定) ---
     function checkPassword() {
       const inputPassword = document.getElementById('password-input').value;
-      if (inputPassword === CORRECT_PASSWORD) {
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('main-section').style.display = 'block';
-        startCamera();
-      } else {
-        document.getElementById('login-error').innerText = "パスワードが正しくありません。";
-      }
-    }
+      const loginError = document.getElementById('login-error');
+      const loginBtn = document.getElementById('login-btn');
 
-    function startCamera() {
-      html5QrCode = new Html5Qrcode("reader");
-      const config = { fps: 10, qrbox: 180 };
-      html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
-      .catch(err => {
-        console.error("カメラ起動エラー:", err);
-        document.getElementById('status').innerText = "カメラの起動に失敗しました。";
+      if (!inputPassword) return;
+
+      loginError.style.color = "blue";
+      loginError.innerText = "認証中...";
+      loginBtn.disabled = true;
+
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "login",
+          password: inputPassword
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          document.getElementById('login-section').style.display = 'none';
+          document.getElementById('main-section').style.display = 'block';
+          startCamera();
+        } else {
+          loginError.style.color = "red";
+          loginError.innerText = "パスワードが正しくありません。";
+          loginBtn.disabled = false;
+        }
+      })
+      .catch(error => {
+        loginError.style.color = "red";
+        loginError.innerText = "通信エラーが発生しました。";
+        loginBtn.disabled = false;
+        console.error(error);
       });
     }
 
+    // --- カメラ起動 ---
+    function startCamera() {
+      html5QrCode = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: 200 };
+      html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+      .catch(err => {
+        console.error("カメラ起動エラー:", err);
+        document.getElementById('status').innerText = "カメラの起動に失敗しました。設定を確認してください。";
+      });
+    }
+
+    // --- QRコード検出時 ---
     function onScanSuccess(decodedText, decodedResult) {
       if (!isScanning) return; 
       isScanning = false;
@@ -139,16 +170,16 @@
       document.getElementById('after-send').style.display = 'none';
     }
 
+    // --- データ送信 ---
     function sendData() {
       const selectedType = document.querySelector('input[name="scan_type"]:checked').value;
       const selectedUser = document.getElementById('operator').value;
       const inputLocation = document.getElementById('location').value.trim(); 
-      const inputWorkNo = document.getElementById('workNo').value.trim(); // ★追加：作業Noを取得
+      const inputWorkNo = document.getElementById('workNo').value.trim();
 
-      // 貸出のときだけ、現場名が空欄ならエラーを出す
+      // 貸出時のみバリデーション
       if (selectedType === "貸出" && inputLocation === "") {
-        alert("【入力エラー】\n貸出時は現場名の入力が必須です。現場名を入力してから「送信する」を押してください。");
-        document.getElementById('status').innerText = "エラー: 現場名を入力してください";
+        alert("貸出時は現場名の入力が必須です。");
         return; 
       }
 
@@ -160,11 +191,12 @@
         mode: "cors",
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({
+          action: "register", // 明示的にアクションを指定
           itemId: scannedText,
           type: selectedType,
           user: selectedUser,
           location: inputLocation,
-          workNo: inputWorkNo // ★追加：オブジェクトに作業Noを含めてGASにPOST
+          workNo: inputWorkNo
         })
       })
       .then(response => response.json())
@@ -175,22 +207,20 @@
           document.getElementById('after-send').style.display = 'block';
           document.getElementById('status').innerText = "";
 
-          setTimeout(function() {
-            resetScan();
-          }, 2000);
-
+          // 2秒後に自動で次へ
+          setTimeout(resetScan, 2000);
         } else {
-          document.getElementById('status').innerText = "エラー: " + data.message;
+          alert("エラー: " + data.message);
           document.getElementById('send-btn').disabled = false;
         }
       })
       .catch(error => {
         document.getElementById('status').innerText = "通信エラーが発生しました";
-        console.error(error);
         document.getElementById('send-btn').disabled = false;
       });
     }
 
+    // --- スキャン状態リセット ---
     function resetScan() {
       document.getElementById('confirm-section').style.display = 'none';
       document.getElementById('before-send').style.display = 'block';
@@ -198,8 +228,9 @@
       document.getElementById('status').innerText = "";
       document.getElementById('send-btn').disabled = false;
       
+      // 入力欄をクリア
       document.getElementById('location').value = "";
-      document.getElementById('workNo').value = ""; // ★追加：次のスキャン時に作業Noも空欄に戻す
+      document.getElementById('workNo').value = "";
       
       scannedText = "";
       isScanning = true; 
