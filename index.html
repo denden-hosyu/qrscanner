@@ -77,8 +77,11 @@
     </div>
 
     <p style="font-size: 0.9em;">商品のQRコードをカメラにかざしてください</p>
+    
+    <!-- カメラ表示エリア -->
     <div id="reader"></div>
 
+    <!-- スキャン完了後の確認エリア -->
     <div id="confirm-section">
       <div id="before-send">
         <p style="font-weight: bold; color: #0d47a1; font-size: 1.1em; margin: 0 0 5px 0;">🎉 スキャン完了！</p>
@@ -100,7 +103,7 @@
 
   <script>
     // ★重要: ここにデプロイしたWebアプリURLを貼り付けてください
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyB4JClKLz_zjvw5H7nWjPOk7G5KqMSaXY1HhhyZv38ejeZB8IEck8fLmnKOFdBcx4-Sg/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzSmYcp6vXsiUcVWN7cEO2EwoIxucA7s9hiHWzTOPX81oqGXcCXnqM6OVTK2R21N1PO8w/exec";
 
     let isScanning = true;
     let scannedText = ""; 
@@ -164,6 +167,9 @@
       isScanning = false;
       scannedText = decodedText; 
       
+      // ★【完全策】スキャンが成功したらカメラ領域を隠して画面を上に詰める
+      document.getElementById('reader').style.display = 'none';
+      
       document.getElementById('scanned-value').innerText = decodedText;
       document.getElementById('confirm-section').style.display = 'block';
       document.getElementById('before-send').style.display = 'block';
@@ -191,7 +197,7 @@
         mode: "cors",
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({
-          action: "register", // 明示的にアクションを指定
+          action: "register",
           itemId: scannedText,
           type: selectedType,
           user: selectedUser,
@@ -227,6 +233,9 @@
       document.getElementById('after-send').style.display = 'none';
       document.getElementById('status').innerText = "";
       document.getElementById('send-btn').disabled = false;
+      
+      // ★【完全策】非表示にしていたカメラ領域を再表示する
+      document.getElementById('reader').style.display = 'block';
       
       // 入力欄をクリア
       document.getElementById('location').value = "";
